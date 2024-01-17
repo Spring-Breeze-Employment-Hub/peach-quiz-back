@@ -1,5 +1,9 @@
-/node_modules
+node_modules
 npm-debug.log
 docker-volumes
 e2e
 test
+dist
+
+Dockerfile
+.dockerignore

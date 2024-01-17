@@ -21,13 +21,14 @@ services: # 이 섹션은 컨테이너로 실행될 서비스들을 정의합니
     stdin_open: true # 컨테이너에서 표준 입력을 유지합니다.
 
   mysql: # 두 번째 서비스의 이름입니다.
-    image: mysql:5.7 # 사용할 MySQL 이미지를 지정합니다.
-    platform: linux/x86_64 # m1 (silicon) 버전 docker에 mysql 설치시 발생하는 문제를 해결하기 위한 소스 추가
+    image: mysql:8.0 # 사용할 MySQL 이미지를 지정합니다.
+    # platform: linux/x86_64 # m1 (silicon) 버전 docker에 mysql 설치시 발생하는 문제를 해결하기 위한 소스 추가
     restart: always # 이 서비스는 항상 재시작됩니다.
     container_name: nest-mysql # 생성될 컨테이너의 이름을 지정합니다.
     environment: # MySQL 서비스에 필요한 환경 변수들을 설정합니다.
-      MYSQL_ROOT_PASSWORD: root # MySQL 루트 사용자의 비밀번호입니다.
+      MYSQL_ROOT_PASSWORD: ${DATABASE_PASSWORD} # MySQL 루트 사용자의 비밀번호입니다.
       MYSQL_DATABASE: ${DATABASE_DB_NAME} # 생성할 데이터베이스의 이름입니다.
+      TZ: Asia/Seoul
       MYSQL_USER: ${DATABASE_USERNAME} # MySQL에서 생성할 사용자의 이름입니다.
       MYSQL_PASSWORD: ${DATABASE_PASSWORD} # MySQL 사용자의 비밀번호입니다.
     ports: # MySQL 서비스의 포트 매핑을 정의합니다.
