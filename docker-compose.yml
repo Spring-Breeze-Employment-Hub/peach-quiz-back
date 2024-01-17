@@ -1,0 +1,43 @@
+version: '3.8' # Docker Compose 파일의 버전을 지정합니다.
+
+services: # 이 섹션은 컨테이너로 실행될 서비스들을 정의합니다.
+  workspace: # 첫 번째 서비스의 이름입니다.
+    build: # 이 서비스를 위한 Docker 이미지 빌드 방법을 정의합니다.
+      context: . # Dockerfile이 있는 현재 디렉토리를 빌드 컨텍스트로 사용합니다.
+      dockerfile: Dockerfile # 사용할 Dockerfile의 경로입니다.
+    image: nest_workspace # 빌드된 이미지의 이름을 지정합니다.
+    restart: on-failure # 컨테이너가 실패할 경우에만 재시작합니다.
+    container_name: nest_workspace # 생성될 컨테이너의 이름을 지정합니다.
+    ports: # 호스트와 컨테이너 간의 포트 매핑을 정의합니다.
+      - ${PORT}:${PORT} # 환경 변수를 사용하여 포트를 동적으로 할당합니다.
+    volumes: # 데이터 볼륨과 마운트 포인트를 정의합니다.
+      - ./:/usr/src/app # 현재 디렉토리를 컨테이너의 /usr/src/app에 마운트합니다.
+      - /usr/src/app/node_modules # node_modules 디렉토리를 별도로 처리합니다.
+    env_file: # 환경 변수를 정의한 파일을 지정합니다.
+      - .env
+    networks: # 이 서비스가 연결될 네트워크를 지정합니다.
+      - internal
+    tty: true # 컨테이너에 터미널 할당을 활성화합니다.
+    stdin_open: true # 컨테이너에서 표준 입력을 유지합니다.
+
+  mysql: # 두 번째 서비스의 이름입니다.
+    image: mysql:5.7 # 사용할 MySQL 이미지를 지정합니다.
+    platform: linux/x86_64 # m1 (silicon) 버전 docker에 mysql 설치시 발생하는 문제를 해결하기 위한 소스 추가
+    restart: always # 이 서비스는 항상 재시작됩니다.
+    container_name: nest-mysql # 생성될 컨테이너의 이름을 지정합니다.
+    environment: # MySQL 서비스에 필요한 환경 변수들을 설정합니다.
+      MYSQL_ROOT_PASSWORD: root # MySQL 루트 사용자의 비밀번호입니다.
+      MYSQL_DATABASE: ${DATABASE_DB_NAME} # 생성할 데이터베이스의 이름입니다.
+      MYSQL_USER: ${DATABASE_USERNAME} # MySQL에서 생성할 사용자의 이름입니다.
+      MYSQL_PASSWORD: ${DATABASE_PASSWORD} # MySQL 사용자의 비밀번호입니다.
+    ports: # MySQL 서비스의 포트 매핑을 정의합니다.
+      - '3306:3306' # 호스트의 3306 포트를 컨테이너의 3306 포트에 연결합니다.
+    volumes: # 데이터 볼륨과 마운트 포인트를 정의합니다.
+      - .mysql-data:/var/lib/mysql # MySQL 데이터를 저장할 볼륨입니다.
+    networks: # 이 서비스가 연결될 네트워크를 지정합니다.
+      - internal
+
+networks: # Docker Compose에서 사용할 네트워크를 정의합니다.
+  internal: # 네트워크의 이름입니다.
+    name: internal # 네트워크의 이름을 지정합니다. 여기서는 'internal'입니다.
+    driver: bridge # 네트워크 드라이버를 지정합니다. 여기서는 'bridge' 드라이버를 사용합니다.
