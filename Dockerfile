@@ -5,7 +5,7 @@ FROM node:20.11-alpine
 WORKDIR /usr/src/app
 
 # 호스트 시스템의 package.json 파일을 컨테이너의 현재 작업 디렉토리(/usr/src/app)로 복사합니다.
-COPY package*.json ./
+COPY package*.json .
 
 # Install app dependencies
 RUN npm install
