@@ -6,6 +6,8 @@ import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import { LoggerModule } from './logger/logger.module';
 import { DatabaseModule } from './database/database.module';
+import { UserModule } from './user/user.module';
+import { RoomModule } from './room/room.module';
 
 @Module({
   imports: [
@@ -15,6 +17,8 @@ import { DatabaseModule } from './database/database.module';
     }),
     LoggerModule,
     DatabaseModule,
+    UserModule,
+    RoomModule,
   ],
   controllers: [AppController],
   providers: [AppService],
