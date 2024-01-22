@@ -16,6 +16,7 @@ import { Room } from 'src/room/entities/room.entity';
         password: configService.get<string>('databasePassword'),
         database: configService.get<string>('databaseName'),
         entities: [User, Room],
+        synchronize: false, // *주의! 개발환경에서만 true 설정
       }),
       inject: [ConfigService],
     }),

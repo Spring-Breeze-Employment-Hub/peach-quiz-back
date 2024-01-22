@@ -15,10 +15,10 @@ export class Room {
   @Column()
   userId: number;
 
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date;
+
   @ManyToOne(() => User)
   @JoinColumn({ name: 'userId' })
   user: User;
-
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  createdAt: Date;
 }
