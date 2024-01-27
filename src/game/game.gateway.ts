@@ -91,7 +91,30 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const room = this.rooms[roomId];
     const player: Player = { clientId: client.id, nickname, role: 'user' };
 
-    if (room && !room.isGameStarted) {
+    if (!nickname) {
+      // 닉네임이 없을 경우
+      client.emit('error', {
+        status: 'error',
+        message: '닉네임을 설정해주세요.',
+      });
+      return;
+    } else if (room.players.length >= 4) {
+      // 최대 인원 제한
+      client.emit('error', {
+        status: 'error',
+        message: '방이 꽉 찼습니다.',
+      });
+      return;
+    } else if (!room.isGameStarted) {
+      // 게임 진행 중 입장 제한
+      client.emit('error', {
+        status: 'error',
+        message: '게임이 진행중입니다.',
+      });
+      return;
+    }
+
+    if (room) {
       room.players.push(player);
       client.join(roomId);
       this.server.to(roomId).emit('join', {
@@ -128,11 +151,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      // start를 요청한 client id를 player에서 찾는다
-      const marsterArr = room.players.filter((el) => el.clientId === client.id);
+      // player에서 master의 client id를 변수에 저장
+      const masterId = room.players.find(
+        (obj) => obj.role === 'master',
+      ).clientId;
 
-      // Game이 시작되지 않았고 clientd의 역할이 'master'일 경우
-      if (!room.isGameStarted && marsterArr[0].role === 'master') {
+      // Game이 시작되지 않았고 client의 역할이 'master'일 경우
+      if (!room.isGameStarted && client.id === masterId) {
         room.isGameStarted = true;
 
         this.server.to(roomId).emit('start', {
@@ -166,7 +191,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         //   this.endGame(roomId);
         // }, 10000);
       } else {
-        client.emit('error', 'Game cannot be started');
+        client.emit('error', {
+          status: 'error',
+          message: '게임을 시작할 수 없습니다.',
+        });
       }
     } catch (error) {
       console.error('Error fetching quiz data:', error);
