@@ -8,6 +8,7 @@ import { LoggerModule } from './logger/logger.module';
 import { DatabaseModule } from './database/database.module';
 import { UserModule } from './user/user.module';
 import { RoomModule } from './room/room.module';
+import { GameModule } from './game/game.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { RoomModule } from './room/room.module';
     DatabaseModule,
     UserModule,
     RoomModule,
+    GameModule,
   ],
   controllers: [AppController],
   providers: [AppService],
