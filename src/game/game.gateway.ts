@@ -42,6 +42,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
    */
   handleDisconnect(client: Socket) {
     console.log(`Client disconnected: ${client.id}`);
+
+    const roomId = client.data.roomId;
+
+    if (roomId) {
+      this.leaveRoom(client, roomId);
+    }
   }
 
   /**
@@ -68,6 +74,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // 방을 생성한 클라이언트를 방에 참여시키기
     client.join(roomId);
+
+    // 클라이언트 세션에 입장한 방 저장
+    client.data.roomId = roomId;
 
     // 클라이언트에게 방 생성 성공을 알림
     client.emit('create', {
@@ -116,7 +125,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     if (room) {
       room.players.push(player);
+
+      // 클라이언트를 방에 참여시키기
       client.join(roomId);
+
+      // 클라이언트 세션에 입장한 방 저장
+      client.data.roomId = roomId;
+
       this.server.to(roomId).emit('join', {
         status: 'success',
         message: `${nickname}님이 게임에 참여하였습니다.`,
@@ -209,8 +224,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /**
-   * End Game 게임종료를 실행하는 함수
-   * @toDo 게임이 끝났으므로 방을 정리하는 기능 추가하기
+   * End Game (게임종료 기능)
    */
   endGame(roomId: string): void {
     const room = this.rooms[roomId];
@@ -221,5 +235,55 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       status: 'success',
       message: '게임 종료',
     });
+  }
+
+  /**
+   * Leave Game (방에서 나가는 기능을 실행하는 소켓)
+   */
+  @SubscribeMessage('leave')
+  async handleLeaveRoom(client: Socket): Promise<void> {
+    const roomId = client.data.roomId;
+    if (!roomId) {
+      client.emit('error', {
+        status: 'error',
+        message: '방을 찾을 수 없습니다',
+      });
+      return;
+    }
+
+    this.leaveRoom(client, roomId);
+  }
+
+  /**
+   * Leave Game (방에서 나가는 기능을 실행하는 함수)
+   */
+  private leaveRoom(client: Socket, roomId: string) {
+    const room = this.rooms[roomId];
+    const player = room.players.find((player) => player.clientId === client.id);
+
+    if (!player) {
+      client.emit('error', {
+        status: 'error',
+        message: '플레이어를 찾을 수 없습니다',
+      });
+      return;
+    }
+
+    this.server.to(roomId).emit('leave', {
+      status: 'success',
+      message: `${player.nickname}님이 게임에서 나가셨습니다.`,
+      players: room.players,
+    });
+
+    if (player.role === 'master' || room.players.length === 0) {
+      this.server.to(roomId).emit('leave', {
+        status: 'success',
+        message: '방장이 방에서 나가셨습니다',
+      });
+
+      delete this.rooms[roomId];
+    }
+
+    client.leave(roomId);
   }
 }
