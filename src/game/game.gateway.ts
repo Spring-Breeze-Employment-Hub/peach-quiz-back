@@ -83,6 +83,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       status: 'success',
       message: '방 생성 완료',
       roomId,
+      clientId: client.id,
+      players: this.rooms[roomId].players,
+      playerCount: this.getConnectedClients(roomId),
+      gameStatus: 'ready',
     });
   }
 
@@ -104,21 +108,34 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // 닉네임이 없을 경우
       client.emit('error', {
         status: 'error',
-        message: '닉네임을 설정해주세요.',
+        message: '게임을 찾을 수 없습니다',
+      });
+      return;
+    } else if (!nickname) {
+      // 닉네임이 없을 경우
+      client.emit('error', {
+        status: 'error',
+        message: '닉네임을 설정해주세요',
       });
       return;
     } else if (room.players.length >= 4) {
       // 최대 인원 제한
       client.emit('error', {
         status: 'error',
-        message: '방이 꽉 찼습니다.',
+        message: '게임의 정원이 초과되었습니다',
       });
       return;
-    } else if (!room.isGameStarted) {
+    } else if (room.isGameStarted === true) {
       // 게임 진행 중 입장 제한
       client.emit('error', {
         status: 'error',
-        message: '게임이 진행중입니다.',
+        message: '게임이 진행중입니다',
+      });
+      return;
+    } else if (this.playerJoinedCheck(client, roomId)) {
+      client.emit('error', {
+        status: 'error',
+        message: '이미 접속중인 방입니다',
       });
       return;
     }
@@ -134,13 +151,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       this.server.to(roomId).emit('join', {
         status: 'success',
-        message: `${nickname}님이 게임에 참여하였습니다.`,
+        message: `${nickname}님이 게임에 참여하였습니다`,
         clientId: client.id,
+        nickname,
+        players: room.players,
+        playerCount: this.getConnectedClients(roomId),
       });
     } else {
       client.emit('error', {
         status: 'error',
-        message: '방이 존재하지 않습니다.',
+        message: '방이 존재하지 않습니다',
       });
     }
   }
@@ -161,7 +181,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!room) {
         client.emit('error', {
           status: 'error',
-          message: '방이 존재하지 않습니다.',
+          message: '방이 존재하지 않습니다',
+        });
+        return;
+      } else if (!quizCategory) {
+        client.emit('error', {
+          status: 'error',
+          message: '카테고리를 입력해 주세요',
         });
         return;
       }
@@ -177,7 +203,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
         this.server.to(roomId).emit('start', {
           status: 'success',
-          message: '게임 시작',
+          message: '게임 준비',
+          gameStatus: 'loading',
         });
 
         // openai api로 퀴즈를 생성
@@ -189,6 +216,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
             threadId,
             quizCategory,
           );
+
+          if (i === 0) {
+            this.server.to(roomId).emit('start', {
+              status: 'success',
+              message: '게임 시작',
+              gameStatus: 'start',
+            });
+          }
 
           if (quizData[0] === '{') {
             this.server.to(roomId).emit('quiz', {
@@ -215,7 +250,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       console.error('Error fetching quiz data:', error);
       client.emit('error', {
         status: 'error',
-        message: '퀴즈를 가져오는 중 에러가 발생했습니다.',
+        message: '퀴즈를 가져오는 중 에러가 발생했습니다',
       });
 
       // 에러 발생 시 게임 상태를 초기화
@@ -234,6 +269,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(roomId).emit('end', {
       status: 'success',
       message: '게임 종료',
+      gameStatus: 'ready',
     });
   }
 
@@ -255,7 +291,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /**
-   * Leave Game (방에서 나가는 기능을 실행하는 함수)
+   * Leave Room (방에서 나가는 기능을 실행하는 함수)
    */
   private leaveRoom(client: Socket, roomId: string) {
     const room = this.rooms[roomId];
@@ -269,21 +305,50 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    this.server.to(roomId).emit('leave', {
-      status: 'success',
-      message: `${player.nickname}님이 게임에서 나가셨습니다.`,
-      players: room.players,
-    });
+    const remainPlayers = room.players.filter(
+      (player) => player.clientId !== client.id,
+    );
 
-    if (player.role === 'master' || room.players.length === 0) {
+    this.rooms[roomId].players = remainPlayers;
+
+    if (player.role === 'master') {
       this.server.to(roomId).emit('leave', {
         status: 'success',
-        message: '방장이 방에서 나가셨습니다',
+        message: '방장이 게임에서 나가셨습니다',
       });
 
       delete this.rooms[roomId];
+    } else {
+      this.server.to(roomId).emit('leave', {
+        status: 'success',
+        message: `${player.nickname}님이 게임에서 나가셨습니다.`,
+        nickname: player.nickname,
+        players: room.players,
+        playerCount: this.getConnectedClients(roomId) - 1,
+      });
     }
 
     client.leave(roomId);
+  }
+
+  /**
+   * roomId에 연결된 소켓의 수를 조회하는 함수
+   */
+  getConnectedClients(roomId: string): number {
+    const connectedSockets = this.server.of('/').adapter.rooms.get(roomId);
+    const numberOfClients = connectedSockets ? connectedSockets.size : 0;
+    return numberOfClients;
+  }
+
+  /**
+   * Client가 Room에 연렬되어 있는지 확인하는 함수
+   * @param {Socket} client client
+   * @param {string} roomId room의 uuid
+   * @returns true / false
+   */
+  playerJoinedCheck(client: Socket, roomId: string) {
+    const connectedSockets = this.server.of('/').adapter.rooms.get(roomId);
+    const clientIdArr = [...connectedSockets];
+    return clientIdArr.find((clientId) => clientId === client.id);
   }
 }
