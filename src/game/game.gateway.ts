@@ -23,7 +23,12 @@ interface Room {
   gameTimeOfSec: number; // 게임 시간
 }
 
-@WebSocketGateway()
+@WebSocketGateway({
+  cors: {
+    origin: '*',
+  },
+  port: 4000,
+})
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
   constructor(private readonly gameService: GameService) {}
